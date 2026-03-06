@@ -1,0 +1,44 @@
+OUTPUT_FILE="lb_health_report.csv"
+
+echo "LoadBalancer,Type,HealthyTargets,Status" > $OUTPUT_FILE
+
+for lb_arn in $(aws elbv2 describe-load-balancers \
+  --query "LoadBalancers[].LoadBalancerArn" \
+  --output text); do
+
+  lb_details=$(aws elbv2 describe-load-balancers \
+    --load-balancer-arns $lb_arn \
+    --query "LoadBalancers[0].[LoadBalancerName,Type]" \
+    --output text)
+
+  lb_name=$(echo $lb_details | awk '{print $1}')
+  lb_type=$(echo $lb_details | awk '{print $2}')
+
+  tg_arns=$(aws elbv2 describe-target-groups \
+    --load-balancer-arn $lb_arn \
+    --query "TargetGroups[].TargetGroupArn" \
+    --output text)
+
+  healthy_count=0
+
+  if [ -n "$tg_arns" ]; then
+    for tg in $tg_arns; do
+      count=$(aws elbv2 describe-target-health \
+        --target-group-arn $tg \
+        --query "length(TargetHealthDescriptions[?TargetHealth.State=='healthy'])" \
+        --output text)
+      healthy_count=$((healthy_count + count))
+    done
+  fi
+
+  if [ "$healthy_count" -gt 0 ]; then
+    status="Active"
+  else
+    status="NotHealthy"
+  fi
+
+  echo "$lb_name,$lb_type,$healthy_count,$status" >> $OUTPUT_FILE
+
+done
+
+echo "Report generated: $OUTPUT_FILE"
