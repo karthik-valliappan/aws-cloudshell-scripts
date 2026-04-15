@@ -2,7 +2,7 @@
 
 OUTPUT_FILE="unattached-ebs-volumes.csv"
 
-echo "VolumeId,Name,Size(GB),AZ,Type,CreatedTime" > $OUTPUT_FILE
+echo "VolumeId,Name,Size(GB),AZ,Type,Status,CreatedTime" > $OUTPUT_FILE
 
 aws ec2 describe-volumes \
   --filters Name=status,Values=available \
@@ -14,6 +14,7 @@ aws ec2 describe-volumes \
     .Size,
     .AvailabilityZone,
     .VolumeType,
+    .State,
     (.CreateTime | sub("\\..*"; "") | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%Y-%m-%d %H:%M:%S"))
   ] | @csv
 ' >> $OUTPUT_FILE
