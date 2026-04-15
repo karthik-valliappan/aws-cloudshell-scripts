@@ -1,0 +1,21 @@
+#!/bin/bash
+
+OUTPUT_FILE="unattached-ebs-volumes.csv"
+
+echo "VolumeId,Name,Size(GB),AZ,Type,CreatedTime" > $OUTPUT_FILE
+
+aws ec2 describe-volumes \
+  --filters Name=status,Values=available \
+  --output json | jq -r '
+  .Volumes[] |
+  [
+    .VolumeId,
+    (.Tags[]? | select(.Key=="Name") | .Value) // "",
+    .Size,
+    .AvailabilityZone,
+    .VolumeType,
+    (.CreateTime | sub("\\..*"; "") | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%Y-%m-%d %H:%M:%S"))
+  ] | @csv
+' >> $OUTPUT_FILE
+
+echo "✅ CSV file generated: $OUTPUT_FILE"
